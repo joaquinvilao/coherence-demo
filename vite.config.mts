@@ -5,7 +5,6 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
-import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { tamaguiPlugin } from '@tamagui/vite-plugin'
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
@@ -45,7 +44,7 @@ export default defineConfig(({ command }) => {
             if (process.env.VSCODE_DEBUG) {
               console.log('[startup] Electron App')
             } else {
-              options.startup()
+              options.startup(['.', '--no-sandbox', '--remote-debugging-port=9222'])
             }
           },
           vite: {
@@ -89,11 +88,6 @@ export default defineConfig(({ command }) => {
         },
       ]),
       renderer(),
-      sentryVitePlugin({
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-        org: 'reor',
-        project: 'electron',
-      }),
     ],
     css: {
       postcss: {

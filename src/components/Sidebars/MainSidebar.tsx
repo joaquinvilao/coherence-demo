@@ -3,13 +3,12 @@ import React, { useState } from 'react'
 import { DBQueryResult } from 'electron/main/vector-database/schema'
 
 import { YStack } from 'tamagui'
-import { ChatSidebar } from '../Chat/ChatSidebar'
-
 import SearchComponent from './SearchComponent'
 import { useChatContext } from '@/contexts/ChatContext'
 import FileSidebar from './FileSideBar/FileSidebar'
+import IngestSidebar from './IngestSidebar'
 
-export type SidebarAbleToShow = 'files' | 'search' | 'chats'
+export type SidebarAbleToShow = 'files' | 'search' | 'chats' | 'ingest'
 
 const SidebarManager: React.FC = () => {
   const { sidebarShowing } = useChatContext()
@@ -20,7 +19,6 @@ const SidebarManager: React.FC = () => {
   return (
     <YStack className="size-full overflow-y-hidden">
       {sidebarShowing === 'files' && <FileSidebar />}
-
       {sidebarShowing === 'search' && (
         <SearchComponent
           searchQuery={searchQuery}
@@ -29,8 +27,7 @@ const SidebarManager: React.FC = () => {
           setSearchResults={setSearchResults}
         />
       )}
-
-      {sidebarShowing === 'chats' && <ChatSidebar />}
+      {sidebarShowing === 'ingest' && <IngestSidebar />}
     </YStack>
   )
 }

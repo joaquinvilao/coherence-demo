@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
   EmbeddingModelConfig,
   EmbeddingModelWithLocalPath,
@@ -136,7 +136,29 @@ const llm = {
   deleteLLM: createIPCHandler<(modelNameToDelete: string) => Promise<void>>('delete-llm'),
 }
 
+// Exponer webUtils.getPathForFile para obtener el path real de un File object
+// (File.path fue removido en Electron 32+)
+contextBridge.exposeInMainWorld('electronWebUtils', {
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+})
+
+// Coherence Engine handlers
+const coherence = {
+  ingest:
+    createIPCHandler<
+      (
+        filepath: string,
+      ) => Promise<{ success: boolean; claimsInserted?: number; contradictionsFound?: number; error?: string }>
+    >('coherence:ingest'),
+  getGraphData: createIPCHandler<() => Promise<{ nodes: unknown[]; links: unknown[] }>>('coherence:graph-data'),
+  getContradictions: createIPCHandler<() => Promise<unknown[]>>('coherence:contradictions'),
+  getDateRange: createIPCHandler<() => Promise<{ min: string | null; max: string | null }>>('coherence:date-range'),
+  clear: createIPCHandler<() => Promise<{ success: boolean }>>('coherence:clear'),
+  openFileDialog: createIPCHandler<() => Promise<string | null>>('coherence:open-file-dialog'),
+}
+
 // Expose to renderer process
+contextBridge.exposeInMainWorld('coherence', coherence)
 contextBridge.exposeInMainWorld('database', database)
 contextBridge.exposeInMainWorld('electronUtils', electronUtils)
 contextBridge.exposeInMainWorld('electronStore', electronStore)
@@ -159,6 +181,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 // Type declarations
 declare global {
   interface Window {
+    coherence: typeof coherence
     database: typeof database
     electronUtils: typeof electronUtils
     electronStore: typeof electronStore

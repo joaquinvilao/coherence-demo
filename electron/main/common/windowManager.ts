@@ -24,7 +24,7 @@ class WindowsManager {
     const { width, height } = this.getWindowSize()
 
     const win = new BrowserWindow({
-      title: 'Reor',
+      title: 'Coherence Engine',
       x,
       y,
       webPreferences: {

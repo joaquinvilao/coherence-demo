@@ -1,84 +1,23 @@
-import React, { useEffect, useState } from 'react'
-
+import React, { useEffect } from 'react'
 import { Portal } from '@headlessui/react'
-import posthog from 'posthog-js'
 import { ToastContainer, toast } from 'react-toastify'
-
 import 'react-toastify/dist/ReactToastify.css'
-import IndexingProgress from './components/Common/IndexingProgress'
 import MainPageComponent from './components/MainPage'
-import InitialSetupSinglePage from './components/Settings/InitialSettingsSinglePage'
 import { ThemeProvider } from './contexts/ThemeContext'
 
-interface AppProps {}
+// El vault y el embedding model están pre-configurados en el main process (index.ts)
+// No hay onboarding — la app abre directo en MainPage
 
-const App: React.FC<AppProps> = () => {
-  const [userHasConfiguredSettingsForIndexing, setUserHasConfiguredSettingsForIndexing] = useState<boolean | undefined>(
-    undefined,
-  )
-
-  const [indexingProgress, setIndexingProgress] = useState<number>(0)
-
+const App: React.FC = () => {
   useEffect(() => {
-    const handleProgressUpdate = (newProgress: number) => {
-      setIndexingProgress(newProgress)
-    }
-    window.ipcRenderer.receive('indexing-progress', handleProgressUpdate)
+    document.documentElement.classList.add('dark')
   }, [])
 
   useEffect(() => {
-    const root = window.document.documentElement
-    root.classList.add('dark')
+    window.ipcRenderer.receive('error-to-display-in-window', (error: string) => {
+      toast.error(error, { className: 'mt-5', autoClose: false, closeOnClick: false, draggable: false })
+    })
   }, [])
-
-  useEffect(() => {
-    const initialisePosthog = async () => {
-      if (await window.electronStore.getAnalyticsMode()) {
-        posthog.init('phc_xi4hFToX1cZU657yzge1VW0XImaaRzuvnFUdbAKI8fu', {
-          api_host: 'https://us.i.posthog.com',
-          autocapture: false,
-        })
-        posthog.register({
-          reorAppVersion: await window.electronUtils.getReorAppVersion(),
-        })
-      }
-    }
-    initialisePosthog()
-  }, [])
-
-  useEffect(() => {
-    const handleIndexingError = (error: string) => {
-      toast.error(error, {
-        className: 'mt-5',
-        autoClose: false,
-        closeOnClick: false,
-        draggable: false,
-      })
-      setIndexingProgress(1)
-    }
-    window.ipcRenderer.receive('error-to-display-in-window', handleIndexingError)
-  }, [])
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      const [initialDirectory, defaultEmbedFunc] = await Promise.all([
-        window.electronStore.getVaultDirectoryForWindow(),
-        window.electronStore.getDefaultEmbeddingModel(),
-      ])
-      const configuedInitialSettings = !!(initialDirectory && defaultEmbedFunc)
-      setUserHasConfiguredSettingsForIndexing(configuedInitialSettings)
-      if (initialDirectory && defaultEmbedFunc) {
-        window.database.indexFilesInDirectory()
-      }
-    }
-
-    fetchSettings()
-  }, [])
-
-  const handleAllInitialSettingsAreReady = () => {
-    // setUserHasConfiguredSettingsForIndexing(true)
-    window.database.indexFilesInDirectory()
-  }
 
   return (
     <ThemeProvider>
@@ -91,16 +30,10 @@ const App: React.FC<AppProps> = () => {
             hideProgressBar={false}
             closeOnClick
             pauseOnHover
-            toastClassName="text-xs" // Added max height and overflow
-          />{' '}
+            toastClassName="text-xs"
+          />
         </Portal>
-        {!userHasConfiguredSettingsForIndexing && userHasConfiguredSettingsForIndexing !== undefined && (
-          <InitialSetupSinglePage readyForIndexing={handleAllInitialSettingsAreReady} />
-        )}
-        {userHasConfiguredSettingsForIndexing && indexingProgress < 1 && (
-          <IndexingProgress indexingProgress={indexingProgress} />
-        )}
-        {userHasConfiguredSettingsForIndexing && indexingProgress >= 1 && <MainPageComponent />}
+        <MainPageComponent />
       </div>
     </ThemeProvider>
   )

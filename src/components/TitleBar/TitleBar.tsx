@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { XStack, SizableText } from 'tamagui'
-import { MessageSquareMore, MessageSquareOff, PanelRightOpen, PanelRightClose } from '@tamagui/lucide-icons'
+import { Network } from '@tamagui/lucide-icons'
 import NavigationButtons from './NavigationButtons'
-import ExternalLink from '../Common/ExternalLink'
 
 export const titleBarHeight = '30px'
 
 interface TitleBarProps {
-  activePanel: 'chat' | 'similarFiles' | null
-  togglePanel: (show: 'chat' | 'similarFiles' | null) => void
+  activePanel: 'claimGraph' | null
+  togglePanel: (panel: 'claimGraph' | null) => void
 }
 
 const TitleBar: React.FC<TitleBarProps> = ({ activePanel, togglePanel }) => {
@@ -19,38 +18,35 @@ const TitleBar: React.FC<TitleBarProps> = ({ activePanel, togglePanel }) => {
       const response = await window.electronUtils.getPlatform()
       setPlatform(response)
     }
-
     fetchPlatform()
   }, [])
 
   return (
-    <XStack alignItems="center" backgroundColor="$gray3" className="electron-drag flex justify-between bg-[#303030]">
-      <div className="mt-px flex" style={platform === 'darwin' ? { marginLeft: '65px' } : { marginLeft: '2px' }}>
+    <XStack alignItems="center" backgroundColor="$gray3" className="electron-drag flex justify-between bg-[#1a1a2e]">
+      <div
+        className="mt-px flex items-center"
+        style={platform === 'darwin' ? { marginLeft: '65px' } : { marginLeft: '8px' }}
+      >
         <NavigationButtons />
+        <SizableText color="$blue10" fontSize={13} fontWeight="600" className="ml-3 tracking-wide">
+          Coherence Engine
+        </SizableText>
       </div>
 
       <XStack
         className="electron-no-drag flex items-center justify-end"
-        style={platform === 'win32' ? { marginRight: '8.5rem' } : { marginRight: '0.3rem' }}
+        style={platform === 'win32' ? { marginRight: '8.5rem' } : { marginRight: '0.5rem' }}
       >
-        <ExternalLink href="https://forms.gle/8H4GtEcE6MBnNAUa7" className="mr-4 cursor-pointer">
-          <SizableText color="$gray11" fontSize={14} className="mr-4">
-            Feedback
+        <XStack
+          onPress={() => togglePanel(activePanel === 'claimGraph' ? null : 'claimGraph')}
+          className="cursor-pointer rounded px-2 py-1 hover:bg-white/10"
+          alignItems="center"
+          gap={4}
+        >
+          <Network size={18} color={activePanel === 'claimGraph' ? '$blue9' : '$gray10'} />
+          <SizableText fontSize={12} color={activePanel === 'claimGraph' ? '$blue9' : '$gray10'}>
+            Grafo de Claims
           </SizableText>
-        </ExternalLink>
-        <XStack onPress={() => togglePanel('chat')}>
-          {activePanel !== 'chat' ? (
-            <MessageSquareMore size={22} title="Show Chatbot" color="$gray11" cursor="pointer" />
-          ) : (
-            <MessageSquareOff size={22} title="Hide Similar Files" color="$gray11" cursor="pointer" />
-          )}
-        </XStack>
-        <XStack marginLeft={3} onPress={() => togglePanel('similarFiles')}>
-          {activePanel !== 'similarFiles' ? (
-            <PanelRightOpen size={22} title="Show Similar Files" color="$gray11" cursor="pointer" />
-          ) : (
-            <PanelRightClose size={22} title="Hide Similar Files" color="$gray11" cursor="pointer" />
-          )}
         </XStack>
       </XStack>
     </XStack>

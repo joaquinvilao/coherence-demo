@@ -1,33 +1,28 @@
-/* eslint-disable react/button-has-type */
-/* eslint-disable jsx-a11y/control-has-associated-label */
-/* eslint-disable react/jsx-no-useless-fragment */
-/* eslint-disable no-nested-ternary */
-import React from 'react'
+import React, { useState } from 'react'
 import { YStack } from 'tamagui'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 
 import '../styles/global.css'
-import ChatComponent from './Chat'
 import TitleBar from './TitleBar/TitleBar'
 import EditorManager from './Editor/EditorManager'
 import IconsSidebar from './Sidebars/IconsSidebar'
 import SidebarManager from './Sidebars/MainSidebar'
 import EmptyPage from './Common/EmptyPage'
 import { ContentProvider, useContentContext } from '../contexts/ContentContext'
-// import WritingAssistant from './WritingAssistant/WritingAssistant'
-import { ChatProvider, useChatContext } from '@/contexts/ChatContext'
+import { ChatProvider } from '@/contexts/ChatContext'
 import { FileProvider, useFileContext } from '@/contexts/FileContext'
 import ModalProvider from '@/contexts/ModalContext'
 import CommonModals from './Common/CommonModals'
 import useAppShortcuts from '../lib/shortcuts/use-shortcut'
 import WindowControls from './ui/window-controls'
-import SimilarFilesSidebarComponent from '@/components/Sidebars/SimilarFilesSidebar'
+import ClaimGraph from './ClaimGraph/ClaimGraph'
+
+type ActivePanel = 'claimGraph' | null
 
 interface MainContentProps {
-  togglePanel: (panel: 'chat' | 'similarFiles' | null) => void
+  togglePanel: (panel: ActivePanel) => void
 }
 
-// Moved MainContent outside as a separate component
 const MainContent: React.FC<MainContentProps> = ({ togglePanel }) => {
   const { currentlyOpenFilePath } = useFileContext()
   const { showEditor, setShowEditor } = useContentContext()
@@ -36,12 +31,7 @@ const MainContent: React.FC<MainContentProps> = ({ togglePanel }) => {
     <div className="relative flex size-full overflow-hidden">
       {currentlyOpenFilePath && showEditor && (
         <div className="size-full overflow-hidden">
-          <WindowControls
-            onClose={() => setShowEditor(false)}
-            onMaximize={() => {
-              togglePanel('chat')
-            }}
-          />
+          <WindowControls onClose={() => setShowEditor(false)} onMaximize={() => togglePanel('claimGraph')} />
           <EditorManager />
         </div>
       )}
@@ -51,18 +41,12 @@ const MainContent: React.FC<MainContentProps> = ({ togglePanel }) => {
 
 const MainPageContent: React.FC = () => {
   const { currentlyOpenFilePath } = useFileContext()
-  const { setShowEditor, showEditor } = useContentContext()
+  const { showEditor } = useContentContext()
   const { getShortcutDescription } = useAppShortcuts()
-  const { activePanel, setActivePanel, openNewChat } = useChatContext()
+  const [activePanel, setActivePanel] = useState<ActivePanel>('claimGraph')
 
-  const togglePanel = (panel: 'chat' | 'similarFiles' | null) => {
+  const togglePanel = (panel: ActivePanel) => {
     setActivePanel((prev) => (prev === panel ? null : panel))
-  }
-
-  const panelSizes = {
-    mainContent: 65,
-    chatComponent: 35,
-    similarFilesSidebar: 30,
   }
 
   return (
@@ -88,27 +72,18 @@ const MainPageContent: React.FC = () => {
                 <ResizablePanelGroup direction="horizontal" className="size-full">
                   {currentlyOpenFilePath && showEditor && (
                     <>
-                      <ResizablePanel defaultSize={panelSizes.mainContent}>
+                      <ResizablePanel defaultSize={55}>
                         <MainContent togglePanel={togglePanel} />
                       </ResizablePanel>
                       <ResizableHandle />
                     </>
                   )}
-                  {activePanel === 'chat' && (
-                    <ResizablePanel defaultSize={panelSizes.chatComponent}>
-                      <div className="relative size-full ">
-                        <WindowControls
-                          onClose={() => setActivePanel(null)}
-                          onMaximize={() => setShowEditor(false)}
-                          onNewChat={() => openNewChat()}
-                        />
-                        <ChatComponent />
+                  {activePanel === 'claimGraph' && (
+                    <ResizablePanel defaultSize={45} minSize={30}>
+                      <div className="relative size-full">
+                        <WindowControls onClose={() => setActivePanel(null)} onMaximize={() => setActivePanel(null)} />
+                        <ClaimGraph />
                       </div>
-                    </ResizablePanel>
-                  )}
-                  {activePanel === 'similarFiles' && (
-                    <ResizablePanel defaultSize={panelSizes.similarFilesSidebar}>
-                      <SimilarFilesSidebarComponent />
                     </ResizablePanel>
                   )}
                 </ResizablePanelGroup>

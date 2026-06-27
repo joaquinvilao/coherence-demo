@@ -1,10 +1,11 @@
-import { release } from 'node:os'
+import { release, homedir } from 'node:os'
 import { join } from 'node:path'
+import { mkdirSync } from 'node:fs'
+import { config as dotenvConfig } from 'dotenv'
 
 import { app, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 
-import * as Sentry from '@sentry/electron/main'
 import errorToStringMainProcess from './common/error'
 import WindowsManager from './common/windowManager'
 import { registerStoreHandlers } from './electron-store/ipcHandlers'
@@ -14,16 +15,35 @@ import registerFileHandlers from './filesystem/ipcHandlers'
 import { ollamaService, registerLLMSessionHandlers } from './llm/ipcHandlers'
 import registerPathHandlers from './path/ipcHandlers'
 import { registerDBSessionHandlers } from './vector-database/ipcHandlers'
+import registerCoherenceHandlers from './coherence/ipcHandlers'
 
-if (process.env.NODE_ENV === 'production') {
-  Sentry.init({
-    dsn: 'https://a764a6135d25ba91f0b25c0252be52f3@o4507840138903552.ingest.us.sentry.io/4507840140410880',
-  })
-}
+// Cargar .env desde el directorio del proyecto (solo en dev)
+dotenvConfig({ path: join(__dirname, '../../.env') })
 
 const store = new Store<StoreSchema>()
-// store.clear() // clear store for testing CAUTION: THIS WILL DELETE YOUR CHAT HISTORY
 const windowsManager = new WindowsManager()
+
+// Pre-configurar vault y embedding model para saltarse el onboarding de Reor
+// Usamos string literals para evitar problemas con el bundler
+const demoCorpusDir = join(homedir(), 'coherence-demo-corpus')
+try {
+  mkdirSync(demoCorpusDir, { recursive: true })
+} catch (_e) {
+  // directory may already exist
+}
+if (!store.get('user.directoryFromPreviousSession')) {
+  store.set('user.directoryFromPreviousSession', demoCorpusDir)
+}
+if (!store.get('defaultEmbeddingModelAlias')) {
+  store.set('defaultEmbeddingModelAlias', 'Xenova/bge-small-en-v1.5')
+  store.set('embeddingModels', {
+    'Xenova/bge-small-en-v1.5': {
+      type: 'repo',
+      repoName: 'Xenova/bge-small-en-v1.5',
+      readableName: 'BGE Small (demo)',
+    },
+  })
+}
 
 process.env.DIST_ELECTRON = join(__dirname, '../')
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
@@ -72,16 +92,10 @@ app.on('activate', () => {
 
 process.on('uncaughtException', (error: Error) => {
   windowsManager.appendNewErrorToDisplayInWindow(errorToStringMainProcess(error))
-  if (process.env.NODE_ENV === 'production') {
-    Sentry.captureException(error)
-  }
 })
 
 process.on('unhandledRejection', (reason: unknown) => {
   windowsManager.appendNewErrorToDisplayInWindow(errorToStringMainProcess(reason))
-  if (process.env.NODE_ENV === 'production') {
-    Sentry.captureException(reason as Error)
-  }
 })
 
 registerLLMSessionHandlers(store)
@@ -90,3 +104,9 @@ registerStoreHandlers(store, windowsManager)
 registerFileHandlers(store, windowsManager)
 registerElectronUtilsHandlers(store, windowsManager, preload, url, indexHtml)
 registerPathHandlers()
+try {
+  registerCoherenceHandlers()
+  console.log('[coherence] handlers registered OK')
+} catch (e) {
+  console.error('[coherence] FAILED to register handlers:', e)
+}
