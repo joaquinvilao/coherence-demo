@@ -117,7 +117,7 @@ const IngestSidebar: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#191919] text-[#EDECE9]">
+    <div className="flex h-full flex-col bg-dark-gray-c-eleven text-[#EDECE9]">
       {/* Header */}
       <div className="border-b border-white/5 px-4 py-3">
         <p className="text-sm font-semibold text-[#EDECE9]">Ingerir documentos</p>

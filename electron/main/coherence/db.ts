@@ -105,15 +105,11 @@ export function getClaims(): Claim[] {
 
 // Brain retrieval: filtrar claims que contengan alguna keyword en el campo indicado.
 // Devuelve ordenados por # de matches descendente (lista pre-ranqueada para RRF).
-export function getClaimsByKeywords(
-  keywords: string[],
-  field: 'subject' | 'predicate' | 'object',
-): Claim[] {
+export function getClaimsByKeywords(keywords: string[], field: 'subject' | 'predicate' | 'object'): Claim[] {
   if (keywords.length === 0) return []
   const lowered = keywords.map((k) => k.toLowerCase())
   return loadDb()
-    .claims
-    .map((c) => {
+    .claims.map((c) => {
       const haystack = (c[field] ?? '').toLowerCase()
       const matches = lowered.filter((k) => haystack.includes(k)).length
       return { claim: c, matches }

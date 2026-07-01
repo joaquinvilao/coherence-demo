@@ -9,11 +9,11 @@ export const TEAMS: Team[] = ['Gerencia', 'Finanzas', 'Operaciones', 'Sostenibil
 // Paleta sutil para etiquetas y halos por equipo (los nodos mantienen su color
 // monocromático según contradicción/selección — esto es solo para identidad de cluster).
 export const TEAM_COLORS: Record<Team, string> = {
-  Gerencia: '#f97316',       // naranja
-  Finanzas: '#10b981',       // verde
-  Operaciones: '#3b82f6',    // azul
+  Gerencia: '#f97316', // naranja
+  Finanzas: '#10b981', // verde
+  Operaciones: '#3b82f6', // azul
   Sostenibilidad: '#a855f7', // morado
-  'Sin equipo': '#94a3b8',   // gris (fallback)
+  'Sin equipo': '#94a3b8', // gris (fallback)
 }
 
 // Inferencia simple por nombre de archivo / título. Si crece, mover a un YAML o DB.

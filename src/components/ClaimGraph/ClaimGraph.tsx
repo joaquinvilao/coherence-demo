@@ -399,7 +399,7 @@ const ClaimGraph: React.FC = () => {
   }, [])
 
   return (
-    <div className="flex size-full select-none flex-col bg-[#191919] text-[#EDECE9]">
+    <div className="flex size-full select-none flex-col bg-dark-gray-c-eleven text-[#EDECE9]">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/5 bg-[#1c1c1c] px-4 py-2">
         <div className="flex items-center gap-3">

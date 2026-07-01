@@ -71,16 +71,10 @@ const BrainSidebar: React.FC = () => {
           },
         ])
       } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', text: res.error ?? 'Error desconocido', isError: true },
-        ])
+        setMessages((prev) => [...prev, { role: 'assistant', text: res.error ?? 'Error desconocido', isError: true }])
       }
     } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', text: `Error: ${String(e)}`, isError: true },
-      ])
+      setMessages((prev) => [...prev, { role: 'assistant', text: `Error: ${String(e)}`, isError: true }])
     } finally {
       setIsLoading(false)
     }
@@ -96,16 +90,14 @@ const BrainSidebar: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#191919] text-[#EDECE9]">
+    <div className="flex h-full flex-col bg-dark-gray-c-eleven text-[#EDECE9]">
       {/* Header */}
       <div className="border-b border-white/5 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-base">💬</span>
           <p className="text-sm font-semibold text-[#EDECE9]">Preguntale al Brain</p>
         </div>
-        <p className="mt-0.5 text-[11px] text-[#8a8a85]">
-          Q&A sobre el corpus, con alertas de contradicciones
-        </p>
+        <p className="mt-0.5 text-[11px] text-[#8a8a85]">Q&A sobre el corpus, con alertas de contradicciones</p>
       </div>
 
       {/* Mensajes / Preguntas guion */}

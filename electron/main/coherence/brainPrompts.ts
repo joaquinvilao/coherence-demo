@@ -50,7 +50,8 @@ export function formatContext(
 
   return {
     context: contextBlocks.join('\n---\n'),
-    relations: relationBlocks.length > 0 ? relationBlocks.join('\n') : '(ninguna contradicción conocida entre estos claims)',
+    relations:
+      relationBlocks.length > 0 ? relationBlocks.join('\n') : '(ninguna contradicción conocida entre estos claims)',
   }
 }
 
