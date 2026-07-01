@@ -33,5 +33,9 @@ data
 binaries
 .env
 
+# Corpus de PDFs del demo — pesados, se descargan/copian localmente,
+# no van al repo (ver IngestSidebar.tsx CORPUS_FILES para las rutas)
+corpus-demo/
+
 # Sentry Config File
 .env.sentry-build-plugin

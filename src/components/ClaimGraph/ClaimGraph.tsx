@@ -18,6 +18,12 @@ interface GraphNode {
   vx?: number
   vy?: number
   vz?: number
+  // Posición fija — cuando están seteadas, d3-force respeta esta posición
+  // y no la mueve la simulación (esto es lo que usamos para el layout
+  // volumétrico tipo "nube de neuronas").
+  fx?: number
+  fy?: number
+  fz?: number
 }
 
 interface GraphLink {
@@ -153,9 +159,9 @@ const DEMO_LINKS: GraphLink[] = [
 //   - Con contradicción: rojo
 //   - Seleccionado: azul
 //   - Fuera del time-travel activo: gris más oscuro
-const NODE_DEFAULT = '#94a3b8'
+const NODE_DEFAULT = '#8a8a85'
 const NODE_CONTRADICTION = '#ef4444'
-const NODE_SELECTED = '#3b82f6'
+const NODE_SELECTED = '#3ECF8E'
 
 function nodeColor(node: GraphNode, contradictedIds: Set<string>, selectedId: string | null): string {
   if (selectedId === node.id) return NODE_SELECTED
@@ -279,37 +285,9 @@ const ClaimGraph: React.FC = () => {
     return () => window.removeEventListener('coherence:focus-claim', handler)
   }, [ForceGraph, nodes, flyToNode])
 
-  // Posicionamiento DETERMINISTA estilo DeusData:
-  // En vez de simulación física (que colapsa los nodos al origen con corpus chico),
-  // distribuimos los nodos en una esfera con golden spiral (Fibonacci sphere).
-  // DeusData hace algo parecido: recibe posiciones pre-calculadas del backend C++.
-  // Pausamos la simulación d3 para que no vuelva a moverlos.
-  useEffect(() => {
-    if (!ForceGraph || !graphRef.current) return undefined
-    const g = graphRef.current
-    const SPHERE_RADIUS = 200
-    const apply = () => {
-      const scene = g.scene?.()
-      const groups: any[] = []
-      scene?.traverse?.((o: any) => {
-        if (o.type === 'Group' && o.position) groups.push(o)
-      })
-      if (groups.length === 0) return
-      groups.forEach((o, i) => {
-        const phi = Math.acos(1 - (2 * (i + 0.5)) / groups.length)
-        const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
-        o.position.set(
-          SPHERE_RADIUS * Math.sin(phi) * Math.cos(theta),
-          SPHERE_RADIUS * Math.sin(phi) * Math.sin(theta),
-          SPHERE_RADIUS * Math.cos(phi),
-        )
-      })
-      g.pauseAnimation?.()
-    }
-    // Esperar a que el ForceGraph monte los grupos de nodos en el scene
-    const timer = setTimeout(apply, 1500)
-    return () => clearTimeout(timer)
-  }, [ForceGraph, nodes.length])
+  // (El layout de posiciones ahora se calcula en `visibleNodes` más abajo,
+  // fijando fx/fy/fz directamente en los datos — ver ese useMemo para el
+  // porqué de ese approach en vez de tocar la escena Three.js post-mount.)
 
   useEffect(() => {
     const load = async () => {
@@ -335,7 +313,48 @@ const ClaimGraph: React.FC = () => {
     return l.relation === filter
   })
 
-  const visibleNodes = nodes
+  // Distribuimos los claims en una NUBE VOLUMÉTRICA 3D (no en la superficie
+  // de una esfera) para que se vea como una red de neuronas dispersas, no
+  // como una pelota sólida y compacta. Usamos golden spiral (Fibonacci
+  // sphere) para los ángulos + radio variable por nodo + jitter orgánico.
+  //
+  // Fijamos fx/fy/fz directamente en los DATOS (no en los objetos Three.js
+  // después del montaje) porque d3-force respeta fx/fy/fz como posición
+  // ANCLADA sin importar cuántos ticks corra la simulación — evita el bug
+  // de nodos que la física vuelve a juntar cerca del origen tras
+  // reposicionarlos manualmente en la escena.
+  const visibleNodes = useMemo(() => {
+    const n = nodes.length
+    if (n === 0) return nodes
+
+    // El radio crece con la raíz cúbica de n para mantener una densidad
+    // visual consistente a medida que el corpus real crece (8 claims de
+    // demo → cientos de claims reales de CMPC/Codelco).
+    const RADIUS = 150 + 42 * Math.cbrt(n)
+
+    return nodes.map((node, i) => {
+      const phi = Math.acos(1 - (2 * (i + 0.5)) / n)
+      const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
+
+      // Radio variable por nodo (no todos a la misma distancia del centro)
+      // usando una secuencia de baja discrepancia (golden ratio) para que
+      // los nodos ocupen todo el volumen de la esfera, no solo su cáscara.
+      const radialFrac = 0.32 + 0.68 * Math.cbrt((i * 0.6180339887) % 1)
+      const r = RADIUS * radialFrac
+
+      // Jitter orgánico pequeño para romper el patrón geométrico perfecto
+      const jx = (Math.random() - 0.5) * RADIUS * 0.14
+      const jy = (Math.random() - 0.5) * RADIUS * 0.14
+      const jz = (Math.random() - 0.5) * RADIUS * 0.14
+
+      const x = r * Math.sin(phi) * Math.cos(theta) + jx
+      const y = r * Math.sin(phi) * Math.sin(theta) + jy
+      const z = r * Math.cos(phi) + jz
+
+      return { ...node, x, y, z, fx: x, fy: y, fz: z }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes])
 
   // graphData memoizado — react-force-graph-3d compara por referencia y
   // si pasamos un objeto nuevo en cada render, ignora el cambio.
@@ -380,11 +399,11 @@ const ClaimGraph: React.FC = () => {
   }, [])
 
   return (
-    <div className="flex size-full select-none flex-col bg-[#141414] text-white">
+    <div className="flex size-full select-none flex-col bg-[#191919] text-[#EDECE9]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/5 bg-[#1a1a1a] px-4 py-2">
+      <div className="flex items-center justify-between border-b border-white/5 bg-[#1c1c1c] px-4 py-2">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold tracking-tight text-white">Grafo de Claims</span>
+          <span className="text-sm font-semibold tracking-tight text-[#EDECE9]">Grafo de Claims</span>
           {contradictions.length > 0 && (
             <motion.span
               initial={{ scale: 0 }}
@@ -404,7 +423,7 @@ const ClaimGraph: React.FC = () => {
                 type="button"
                 key={v}
                 onClick={() => setView(v)}
-                className={`rounded px-2 py-0.5 text-xs transition-all ${view === v ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                className={`rounded px-2 py-0.5 text-xs transition-all ${view === v ? 'bg-white/10 text-[#EDECE9]' : 'text-[#8a8a85] hover:text-[#d4d4d0]'}`}
               >
                 {v === 'graph' ? '⬡ Grafo' : '≡ Lista'}
               </button>
@@ -415,7 +434,7 @@ const ClaimGraph: React.FC = () => {
               type="button"
               key={f}
               onClick={() => setFilter(f)}
-              className={`rounded px-2 py-0.5 text-xs transition-all ${filter === f ? 'bg-white/10 text-white' : 'text-neutral-600 hover:text-neutral-400'}`}
+              className={`rounded px-2 py-0.5 text-xs transition-all ${filter === f ? 'bg-white/10 text-[#EDECE9]' : 'text-[#6e6e6a] hover:text-[#a8a8a3]'}`}
             >
               {/* eslint-disable-next-line no-nested-ternary */}
               {f === 'all' ? 'Todas' : f === 'contradiction' ? '🔴' : '🟢'}
@@ -425,20 +444,20 @@ const ClaimGraph: React.FC = () => {
       </div>
 
       {/* Leyenda */}
-      <div className="flex items-center gap-4 border-b border-white/5 bg-[#141414]/80 px-4 py-1.5">
-        <span className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+      <div className="flex items-center gap-4 border-b border-white/5 bg-[#191919]/80 px-4 py-1.5">
+        <span className="flex items-center gap-1.5 text-[10px] text-[#a8a8a3]">
           <span className="inline-block size-2 rounded-full" style={{ background: NODE_DEFAULT }} />
           claim
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+        <span className="flex items-center gap-1.5 text-[10px] text-[#a8a8a3]">
           <span className="inline-block size-2 rounded-full" style={{ background: NODE_CONTRADICTION }} />
           con contradicción
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+        <span className="flex items-center gap-1.5 text-[10px] text-[#a8a8a3]">
           <span className="inline-block size-2 rounded-full" style={{ background: NODE_SELECTED }} />
           seleccionado
         </span>
-        <span className="ml-auto flex items-center gap-3 text-[10px] text-neutral-600">
+        <span className="ml-auto flex items-center gap-3 text-[10px] text-[#6e6e6a]">
           <span className="flex items-center gap-1">
             <span className="inline-block h-px w-4 bg-red-500/60" />
             contradicción
@@ -460,14 +479,14 @@ const ClaimGraph: React.FC = () => {
                 graphData={graphData}
                 width={dimensions.w}
                 height={dimensions.h}
-                backgroundColor="#141414"
+                backgroundColor="#191919"
                 showNavInfo={false}
                 nodeColor={(node: GraphNode) => nodeColor(node, contradictedIds, selectedId)}
                 nodeVal={(node: GraphNode) => Math.max(8, Math.min(20, 8 + (nodeDegrees.get(node.id) ?? 0) * 0.8))}
                 nodeOpacity={1}
                 nodeResolution={12}
                 nodeLabel={(node: GraphNode) =>
-                  `<div style="background:#0d1117;color:#fff;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-size:11px;font-family:Inter,sans-serif;max-width:240px">
+                  `<div style="background:#1c1c1c;color:#EDECE9;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-size:11px;font-family:Inter,sans-serif;max-width:240px">
                     <div style="opacity:0.5;font-size:9px;margin-bottom:2px">${DOC_LABELS[node.doc_title] ?? node.doc_title} · ${node.valid_at?.slice(0, 4) ?? ''}</div>
                     <div><span style="opacity:0.6">${node.subject}</span> <span style="opacity:0.4">${node.predicate}</span> <span style="font-weight:600">${node.object}</span></div>
                   </div>`
@@ -502,16 +521,16 @@ const ClaimGraph: React.FC = () => {
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 16 }}
-                  className="bg-[#1a1a1a]/98 absolute right-0 top-0 h-full w-72 overflow-y-auto border-l border-white/5 p-4 backdrop-blur-sm"
+                  className="bg-[#1c1c1c]/98 absolute right-0 top-0 h-full w-72 overflow-y-auto border-l border-white/5 p-4 backdrop-blur-sm"
                 >
                   <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6e6e6a]">
                       {selected.type === 'link' ? 'Relación' : 'Afirmación'}
                     </span>
                     <button
                       type="button"
                       onClick={() => setSelected(null)}
-                      className="text-sm text-neutral-700 hover:text-white"
+                      className="text-sm text-[#565652] hover:text-[#EDECE9]"
                     >
                       ✕
                     </button>
@@ -537,7 +556,7 @@ const ClaimGraph: React.FC = () => {
                               <p className={`text-sm font-semibold ${isContra ? 'text-red-400' : 'text-green-400'}`}>
                                 {isContra ? 'Contradicción detectada' : 'Soporte / consistencia'}
                               </p>
-                              <p className="mt-0.5 text-xs text-neutral-400">{link.explanation}</p>
+                              <p className="mt-0.5 text-xs text-[#a8a8a3]">{link.explanation}</p>
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -553,13 +572,13 @@ const ClaimGraph: React.FC = () => {
                                       className="inline-block size-2 rounded-full"
                                       style={{ background: DOC_COLORS[n!.doc_title] ?? DEFAULT_COLOR }}
                                     />
-                                    <span className="text-[10px] text-neutral-500">
+                                    <span className="text-[10px] text-[#8a8a85]">
                                       {DOC_LABELS[n!.doc_title] ?? n!.doc_title} · {n!.valid_at?.slice(0, 4)}
                                     </span>
                                   </div>
-                                  <p className="text-xs leading-relaxed text-white">
-                                    <span className="text-neutral-400">{n!.subject}</span>{' '}
-                                    <span className="text-neutral-500">{n!.predicate}</span>{' '}
+                                  <p className="text-xs leading-relaxed text-[#EDECE9]">
+                                    <span className="text-[#a8a8a3]">{n!.subject}</span>{' '}
+                                    <span className="text-[#8a8a85]">{n!.predicate}</span>{' '}
                                     <span className="font-medium">{n!.object}</span>
                                   </p>
                                 </div>
@@ -579,12 +598,12 @@ const ClaimGraph: React.FC = () => {
                           <div className="rounded-lg border border-white/10 p-3">
                             <div className="mb-3 flex items-center gap-2">
                               <span className="inline-block size-2.5 rounded-full" style={{ background: color }} />
-                              <span className="text-[10px] text-neutral-500">
+                              <span className="text-[10px] text-[#8a8a85]">
                                 {DOC_LABELS[node.doc_title] ?? node.doc_title} · {node.valid_at?.slice(0, 4)}
                               </span>
                             </div>
-                            <p className="text-sm font-semibold text-white">{node.subject}</p>
-                            <p className="mt-1 text-xs text-neutral-400">{node.predicate}</p>
+                            <p className="text-sm font-semibold text-[#EDECE9]">{node.subject}</p>
+                            <p className="mt-1 text-xs text-[#a8a8a3]">{node.predicate}</p>
                             <p className="mt-2 text-sm font-medium" style={{ color }}>
                               {node.object}
                             </p>
@@ -598,7 +617,7 @@ const ClaimGraph: React.FC = () => {
           </>
         ) : (
           <div className="h-full space-y-3 overflow-y-auto p-4">
-            <p className="mb-4 text-xs text-neutral-600">
+            <p className="mb-4 text-xs text-[#6e6e6a]">
               {contradictions.length} contradiccion{contradictions.length !== 1 ? 'es' : ''} detectadas
             </p>
             {contradictions.map((link, i) => {
@@ -621,7 +640,7 @@ const ClaimGraph: React.FC = () => {
                 >
                   <div className="mb-3 flex items-start gap-2">
                     <span className="mt-0.5 text-red-500">⚠</span>
-                    <p className="text-xs leading-relaxed text-neutral-300">{link.explanation}</p>
+                    <p className="text-xs leading-relaxed text-[#c9c9c5]">{link.explanation}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {[srcNode, tgtNode].filter(Boolean).map((n, j) => (
@@ -632,11 +651,11 @@ const ClaimGraph: React.FC = () => {
                             className="size-1.5 rounded-full"
                             style={{ background: DOC_COLORS[n!.doc_title] ?? DEFAULT_COLOR }}
                           />
-                          <span className="text-[9px] text-neutral-600">{n!.valid_at?.slice(0, 4)}</span>
+                          <span className="text-[9px] text-[#6e6e6a]">{n!.valid_at?.slice(0, 4)}</span>
                         </div>
-                        <p className="text-[10px] leading-tight text-neutral-400">
+                        <p className="text-[10px] leading-tight text-[#a8a8a3]">
                           {n!.subject} {n!.predicate}
-                          <span className="block font-medium text-white">{n!.object}</span>
+                          <span className="block font-medium text-[#EDECE9]">{n!.object}</span>
                         </p>
                       </div>
                     ))}

@@ -96,14 +96,14 @@ const BrainSidebar: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#141414] text-white">
+    <div className="flex h-full flex-col bg-[#191919] text-[#EDECE9]">
       {/* Header */}
       <div className="border-b border-white/5 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-base">💬</span>
-          <p className="text-sm font-semibold text-white">Preguntale al Brain</p>
+          <p className="text-sm font-semibold text-[#EDECE9]">Preguntale al Brain</p>
         </div>
-        <p className="mt-0.5 text-[11px] text-neutral-500">
+        <p className="mt-0.5 text-[11px] text-[#8a8a85]">
           Q&A sobre el corpus, con alertas de contradicciones
         </p>
       </div>
@@ -112,7 +112,7 @@ const BrainSidebar: React.FC = () => {
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {messages.length === 0 && !isLoading && (
           <div className="space-y-3">
-            <p className="text-[11px] text-neutral-500">Probá una de estas preguntas:</p>
+            <p className="text-[11px] text-[#8a8a85]">Probá una de estas preguntas:</p>
             <div className="space-y-1.5">
               {DEMO_QUESTIONS.map((q) => (
                 <button
@@ -120,7 +120,7 @@ const BrainSidebar: React.FC = () => {
                   key={q}
                   onClick={() => sendQuestion(q)}
                   disabled={isLoading}
-                  className="block w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-left text-xs text-neutral-300 transition-all hover:border-blue-600/50 hover:bg-blue-900/10 hover:text-white"
+                  className="block w-full rounded-lg border border-white/5 bg-[#1c1c1c] px-3 py-2 text-left text-xs text-[#c9c9c5] transition-all hover:border-[#3ECF8E]/50 hover:bg-[#3ECF8E]/10 hover:text-[#EDECE9]"
                 >
                   {q}
                 </button>
@@ -139,10 +139,10 @@ const BrainSidebar: React.FC = () => {
             <div
               className={`max-w-[90%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-blue-600/20 text-blue-100 ring-1 ring-blue-500/30'
+                  ? 'bg-[#3ECF8E]/20 text-[#c9f5e2] ring-1 ring-[#3ECF8E]/30'
                   : msg.isError
                     ? 'bg-red-500/10 text-red-300 ring-1 ring-red-500/30'
-                    : 'bg-neutral-900 text-neutral-200 ring-1 ring-white/5'
+                    : 'bg-[#1c1c1c] text-[#e8e6e1] ring-1 ring-white/5'
               }`}
             >
               <p className="whitespace-pre-wrap">{msg.text}</p>
@@ -157,7 +157,7 @@ const BrainSidebar: React.FC = () => {
                       {msg.contradictionsRevealed.length > 1 ? 'es' : ''} en el corpus
                     </p>
                     {msg.contradictionsRevealed.slice(0, 2).map((r, j) => (
-                      <p key={j} className="mt-0.5 text-[10px] text-neutral-400">
+                      <p key={j} className="mt-0.5 text-[10px] text-[#a8a8a3]">
                         {r.explanation}
                       </p>
                     ))}
@@ -173,7 +173,7 @@ const BrainSidebar: React.FC = () => {
                       type="button"
                       key={c.id}
                       onClick={() => focusOnClaim(c.id)}
-                      className="rounded-full bg-white/5 px-2 py-0.5 text-[9px] text-neutral-400 transition-all hover:bg-white/10 hover:text-white"
+                      className="rounded-full bg-white/5 px-2 py-0.5 text-[9px] text-[#a8a8a3] transition-all hover:bg-white/10 hover:text-[#EDECE9]"
                       title={`${c.subject} ${c.predicate} ${c.object}`}
                     >
                       {c.subject.slice(0, 12)} · {c.object.slice(0, 16)}
@@ -194,15 +194,15 @@ const BrainSidebar: React.FC = () => {
               exit={{ opacity: 0 }}
               className="flex justify-start"
             >
-              <div className="rounded-2xl bg-neutral-900 px-3 py-2 ring-1 ring-white/5">
+              <div className="rounded-2xl bg-[#1c1c1c] px-3 py-2 ring-1 ring-white/5">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-block size-1.5 animate-bounce rounded-full bg-neutral-500" />
+                  <span className="inline-block size-1.5 animate-bounce rounded-full bg-[#8a8a85]" />
                   <span
-                    className="inline-block size-1.5 animate-bounce rounded-full bg-neutral-500"
+                    className="inline-block size-1.5 animate-bounce rounded-full bg-[#8a8a85]"
                     style={{ animationDelay: '0.15s' }}
                   />
                   <span
-                    className="inline-block size-1.5 animate-bounce rounded-full bg-neutral-500"
+                    className="inline-block size-1.5 animate-bounce rounded-full bg-[#8a8a85]"
                     style={{ animationDelay: '0.3s' }}
                   />
                 </div>
@@ -223,12 +223,12 @@ const BrainSidebar: React.FC = () => {
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
             placeholder={isLoading ? 'Pensando...' : 'Hacé una pregunta...'}
-            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-white placeholder-neutral-600 outline-none ring-blue-500/30 focus:border-blue-500 focus:ring-1 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-white/10 bg-[#1c1c1c] px-3 py-2 text-xs text-[#EDECE9] placeholder-[#6e6e6a] outline-none ring-[#3ECF8E]/30 focus:border-[#3ECF8E] focus:ring-1 disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-all hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-600"
+            className="rounded-lg bg-[#3ECF8E] px-3 py-2 text-xs font-medium text-[#0d1f16] transition-all hover:bg-[#5AD9A2] disabled:bg-[#212121] disabled:text-[#6e6e6a]"
           >
             →
           </button>
@@ -237,7 +237,7 @@ const BrainSidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => setMessages([])}
-            className="mt-2 text-[10px] text-neutral-600 transition-colors hover:text-neutral-400"
+            className="mt-2 text-[10px] text-[#6e6e6a] transition-colors hover:text-[#a8a8a3]"
           >
             Limpiar conversación
           </button>

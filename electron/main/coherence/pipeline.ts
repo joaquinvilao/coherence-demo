@@ -40,14 +40,14 @@ export async function ingestDocument(
     return { claimsInserted: 0, contradictionsFound: 0 }
   }
 
-  // 3. Insertar documento
-  const doc = insertDocument({
-    filepath,
-    title: parsed.title,
-    content_hash: contentHash,
-  })
-
-  // 4. Chunking y extracción de claims
+  // 3. Chunking y extracción de claims
+  // NOTA: el documento se registra en la BD recién DESPUÉS de que la
+  // extracción termina exitosamente (ver más abajo) — no acá. Si se
+  // registrara antes y el proceso se interrumpe a mitad de la extracción
+  // (ej. la app se cierra/reinicia), el chequeo de "¿ya fue ingerido?" por
+  // content_hash daría verdadero en el próximo intento sin haber extraído
+  // ningún claim real, dejando un documento "fantasma" con 0 claims que
+  // nunca se puede comparar contra el resto del corpus.
   const chunks = chunkText(parsed.text)
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const valid_at = parsed.inferredYear ? `${parsed.inferredYear}-01-01T00:00:00.000Z` : new Date().toISOString()
@@ -73,6 +73,14 @@ export async function ingestDocument(
     })
     return { claimsInserted: 0, contradictionsFound: 0 }
   }
+
+  // 4. Insertar documento (recién ahora que sabemos que la extracción
+  // terminó con al menos un claim real) y luego los claims
+  const doc = insertDocument({
+    filepath,
+    title: parsed.title,
+    content_hash: contentHash,
+  })
 
   // 5. Insertar claims
   const newClaims = insertClaims(

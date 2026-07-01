@@ -16,12 +16,14 @@ interface IngestedDoc {
   timestamp: string
 }
 
+// NOTA: ruta local a esta máquina — los PDFs viven en corpus-demo/ (gitignored,
+// no se suben al repo por peso). Si movés el proyecto, ajustá esta ruta.
 const CORPUS_FILES = [
-  { label: 'CMPC Memoria 2022', path: '/home/joaquin-vila/coherence-demo-corpus/CMPC_Memoria_2022.pdf', year: '2022' },
-  { label: 'CMPC Memoria 2023', path: '/home/joaquin-vila/coherence-demo-corpus/CMPC_Memoria_2023.pdf', year: '2023' },
+  { label: 'CMPC Memoria 2022', path: 'C:\\claude\\coherence-demo\\corpus-demo\\CMPC_Memoria_2022.pdf', year: '2022' },
+  { label: 'CMPC Memoria 2023', path: 'C:\\claude\\coherence-demo\\corpus-demo\\CMPC_Memoria_2023.pdf', year: '2023' },
   {
     label: 'Codelco Sustentabilidad 2022',
-    path: '/home/joaquin-vila/coherence-demo-corpus/Codelco_Sustentabilidad_2022.pdf',
+    path: 'C:\\claude\\coherence-demo\\corpus-demo\\Codelco_Sustentabilidad_2022.pdf',
     year: '2022',
   },
 ]
@@ -115,11 +117,11 @@ const IngestSidebar: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#141414] text-white">
+    <div className="flex h-full flex-col bg-[#191919] text-[#EDECE9]">
       {/* Header */}
       <div className="border-b border-white/5 px-4 py-3">
-        <p className="text-sm font-semibold text-white">Ingerir documentos</p>
-        <p className="mt-0.5 text-[11px] text-neutral-500">PDF · Word · TXT</p>
+        <p className="text-sm font-semibold text-[#EDECE9]">Ingerir documentos</p>
+        <p className="mt-0.5 text-[11px] text-[#8a8a85]">PDF · Word · TXT</p>
       </div>
 
       {/* Input de archivo oculto — Electron expone el path real del archivo */}
@@ -133,7 +135,7 @@ const IngestSidebar: React.FC = () => {
 
       {/* Corpus pre-cargado — botones para el demo */}
       <div className="px-3 pb-2">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-600">Corpus del demo</p>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#6e6e6a]">Corpus del demo</p>
         <div className="space-y-1.5">
           {CORPUS_FILES.map((f) => {
             const alreadyDone = docs.some((d) => d.name === f.label)
@@ -153,12 +155,12 @@ const IngestSidebar: React.FC = () => {
                   alreadyDone
                     ? 'cursor-default border-[#165014]/60 bg-[#092008]/40 text-[#2c9f28]'
                     : isIngesting
-                      ? 'cursor-wait border-neutral-800 bg-neutral-900 text-neutral-600'
-                      : 'cursor-pointer border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-blue-600/50 hover:bg-blue-900/10 hover:text-white'
+                      ? 'cursor-wait border-white/5 bg-[#1c1c1c] text-[#6e6e6a]'
+                      : 'cursor-pointer border-white/10 bg-[#1c1c1c] text-[#c9c9c5] hover:border-[#3ECF8E]/50 hover:bg-[#3ECF8E]/10 hover:text-[#EDECE9]'
                 }`}
               >
                 <span>{f.label}</span>
-                <span className={`text-[10px] ${alreadyDone ? 'text-[#2c9f28]' : 'text-neutral-600'}`}>
+                <span className={`text-[10px] ${alreadyDone ? 'text-[#2c9f28]' : 'text-[#6e6e6a]'}`}>
                   {alreadyDone ? '✓ listo' : f.year}
                 </span>
               </button>
@@ -179,14 +181,14 @@ const IngestSidebar: React.FC = () => {
           onClick={isIngesting ? undefined : openFilePicker}
           className={`relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-all ${
             isDragging
-              ? 'border-blue-500 bg-blue-500/10'
+              ? 'border-[#3ECF8E] bg-[#3ECF8E]/10'
               : isIngesting
-                ? 'cursor-wait border-neutral-700 bg-neutral-800/30'
-                : 'border-neutral-700 bg-neutral-800/20 hover:border-neutral-500 hover:bg-neutral-800/40'
+                ? 'cursor-wait border-white/10 bg-[#212121]/30'
+                : 'border-white/10 bg-[#212121]/20 hover:border-white/25 hover:bg-[#212121]/40'
           }`}
         >
           <div className="mb-2 text-3xl">{isIngesting ? '⏳' : '📂'}</div>
-          <p className="text-center text-xs text-neutral-400">
+          <p className="text-center text-xs text-[#a8a8a3]">
             {isIngesting
               ? 'Procesando...'
               : isDragging
@@ -203,18 +205,18 @@ const IngestSidebar: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mx-3 mb-3 overflow-hidden rounded-lg border border-white/5 bg-neutral-900"
+            className="mx-3 mb-3 overflow-hidden rounded-lg border border-white/5 bg-[#1c1c1c]"
           >
             <div className="space-y-2 p-3">
               <div className="flex items-center gap-2">
                 <span className="text-base">{STAGE_ICONS[progress.stage]}</span>
                 <span
-                  className={`text-xs font-medium ${progress.stage === 'error' ? 'text-red-400' : progress.stage === 'done' ? 'text-[#2c9f28]' : 'text-blue-400'}`}
+                  className={`text-xs font-medium ${progress.stage === 'error' ? 'text-red-400' : progress.stage === 'done' ? 'text-[#2c9f28]' : 'text-[#3ECF8E]'}`}
                 >
                   {progress.stage === 'done' ? 'Completado' : progress.stage === 'error' ? 'Error' : 'Procesando'}
                 </span>
               </div>
-              <p className="text-[11px] leading-relaxed text-neutral-400">{progress.message}</p>
+              <p className="text-[11px] leading-relaxed text-[#a8a8a3]">{progress.message}</p>
               {progress.stage === 'done' &&
                 progress.contradictionsFound !== undefined &&
                 progress.contradictionsFound > 0 && (
@@ -229,9 +231,9 @@ const IngestSidebar: React.FC = () => {
             </div>
             {/* Progress bar animada */}
             {progress.stage !== 'done' && progress.stage !== 'error' && (
-              <div className="h-0.5 w-full bg-neutral-800">
+              <div className="h-0.5 w-full bg-[#212121]">
                 <motion.div
-                  className="h-full bg-blue-500"
+                  className="h-full bg-[#3ECF8E]"
                   animate={{ width: ['0%', '90%'] }}
                   transition={{ duration: 8, ease: 'easeOut' }}
                 />
@@ -245,13 +247,13 @@ const IngestSidebar: React.FC = () => {
       {docs.length > 0 && (
         <div className="flex-1 overflow-y-auto px-3 pb-3">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6e6e6a]">
               Procesados ({docs.length})
             </p>
             <button
               type="button"
               onClick={clearAll}
-              className="text-[10px] text-neutral-700 transition-colors hover:text-red-400"
+              className="text-[10px] text-[#565652] transition-colors hover:text-red-400"
             >
               Limpiar todo
             </button>
@@ -263,19 +265,19 @@ const IngestSidebar: React.FC = () => {
                 key={i}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-lg border border-white/5 bg-neutral-900 p-3"
+                className="rounded-lg border border-white/5 bg-[#1c1c1c] p-3"
               >
-                <p className="truncate text-xs font-medium text-white" title={doc.name}>
+                <p className="truncate text-xs font-medium text-[#EDECE9]" title={doc.name}>
                   {doc.name}
                 </p>
                 <div className="mt-1.5 flex items-center gap-3">
-                  <span className="text-[10px] text-neutral-500">{doc.claimsFound} claims</span>
+                  <span className="text-[10px] text-[#8a8a85]">{doc.claimsFound} claims</span>
                   {doc.contradictionsFound > 0 && (
                     <span className="text-[10px] font-medium text-red-400">
                       ⚠ {doc.contradictionsFound} contradicciones
                     </span>
                   )}
-                  <span className="ml-auto text-[10px] text-neutral-700">{doc.timestamp}</span>
+                  <span className="ml-auto text-[10px] text-[#565652]">{doc.timestamp}</span>
                 </div>
               </motion.div>
             ))}
@@ -285,7 +287,7 @@ const IngestSidebar: React.FC = () => {
 
       {docs.length === 0 && !isIngesting && (
         <div className="flex flex-1 items-center justify-center">
-          <p className="px-4 text-center text-[11px] text-neutral-700">
+          <p className="px-4 text-center text-[11px] text-[#565652]">
             Ingerí un documento para empezar a detectar contradicciones
           </p>
         </div>
