@@ -7,8 +7,9 @@ import SearchComponent from './SearchComponent'
 import { useChatContext } from '@/contexts/ChatContext'
 import FileSidebar from './FileSideBar/FileSidebar'
 import IngestSidebar from './IngestSidebar'
+import BrainSidebar from '../Brain/BrainSidebar'
 
-export type SidebarAbleToShow = 'files' | 'search' | 'chats' | 'ingest'
+export type SidebarAbleToShow = 'files' | 'search' | 'chats' | 'ingest' | 'brain'
 
 const SidebarManager: React.FC = () => {
   const { sidebarShowing } = useChatContext()
@@ -28,6 +29,7 @@ const SidebarManager: React.FC = () => {
         />
       )}
       {sidebarShowing === 'ingest' && <IngestSidebar />}
+      {sidebarShowing === 'brain' && <BrainSidebar />}
     </YStack>
   )
 }

@@ -22,23 +22,28 @@ const EXTRACTION_PROMPT = `Eres un extractor de afirmaciones factuales de docume
 Dado el siguiente fragmento de texto, extrae todas las afirmaciones factuales atómicas y verificables.
 Una afirmación factual es una declaración concreta sobre una política, meta, número, fecha, o procedimiento de la empresa.
 
-REGLAS:
+REGLAS CRÍTICAS:
+- El SUJETO siempre debe ser la entidad principal mencionada en el TEXTO, NUNCA copies entidades del ejemplo
+- Si el texto no nombra una empresa explícita, usa la entidad implícita (por ejemplo: el sujeto del documento)
 - Extrae solo afirmaciones verificables y específicas (no opiniones vagas)
 - Cada afirmación debe tener sujeto, predicado y objeto concretos
+- Para temas comparables entre documentos (metas, presupuestos, fechas), usá un predicado CORTO y CONSISTENTE
+  - Bueno: "meta carbono neutralidad" / "inversión planta norte" / "nuevas contrataciones 2024"
+  - Malo: "se compromete a alcanzar la carbono neutralidad para" (muy largo, no se compara)
 - Incluye el fragmento exacto del texto del que proviene en raw_text
 - confidence: 0.9 si es explícita, 0.7 si es implícita
 - Máximo 10 afirmaciones por fragmento
 - Responde SOLO con JSON válido, sin texto adicional
 
-FORMATO DE RESPUESTA:
+FORMATO DE RESPUESTA (ejemplo abstracto — REEMPLAZA por entidades del texto real):
 {
   "claims": [
     {
-      "subject": "CMPC",
-      "predicate": "tiene meta de carbono neutralidad para",
-      "object": "el año 2040",
+      "subject": "<entidad-principal-del-texto>",
+      "predicate": "<predicado-corto-y-comparable>",
+      "object": "<valor-concreto-con-numero-o-fecha>",
       "confidence": 0.9,
-      "raw_text": "CMPC se compromete a alcanzar la carbono neutralidad para el año 2040"
+      "raw_text": "<fragmento-literal-del-texto>"
     }
   ]
 }

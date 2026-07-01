@@ -115,7 +115,7 @@ const IngestSidebar: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#0d1117] text-white">
+    <div className="flex h-full flex-col bg-[#141414] text-white">
       {/* Header */}
       <div className="border-b border-white/5 px-4 py-3">
         <p className="text-sm font-semibold text-white">Ingerir documentos</p>
@@ -151,14 +151,14 @@ const IngestSidebar: React.FC = () => {
                 }
                 className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition-all ${
                   alreadyDone
-                    ? 'cursor-default border-green-900/40 bg-green-900/10 text-green-600'
+                    ? 'cursor-default border-[#165014]/60 bg-[#092008]/40 text-[#2c9f28]'
                     : isIngesting
                       ? 'cursor-wait border-neutral-800 bg-neutral-900 text-neutral-600'
                       : 'cursor-pointer border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-blue-600/50 hover:bg-blue-900/10 hover:text-white'
                 }`}
               >
                 <span>{f.label}</span>
-                <span className={`text-[10px] ${alreadyDone ? 'text-green-600' : 'text-neutral-600'}`}>
+                <span className={`text-[10px] ${alreadyDone ? 'text-[#2c9f28]' : 'text-neutral-600'}`}>
                   {alreadyDone ? '✓ listo' : f.year}
                 </span>
               </button>
@@ -209,7 +209,7 @@ const IngestSidebar: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="text-base">{STAGE_ICONS[progress.stage]}</span>
                 <span
-                  className={`text-xs font-medium ${progress.stage === 'error' ? 'text-red-400' : progress.stage === 'done' ? 'text-green-400' : 'text-blue-400'}`}
+                  className={`text-xs font-medium ${progress.stage === 'error' ? 'text-red-400' : progress.stage === 'done' ? 'text-[#2c9f28]' : 'text-blue-400'}`}
                 >
                   {progress.stage === 'done' ? 'Completado' : progress.stage === 'error' ? 'Error' : 'Procesando'}
                 </span>

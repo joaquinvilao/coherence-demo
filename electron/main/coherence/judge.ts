@@ -115,14 +115,15 @@ export async function judgeClaimPair(claimA: Claim, claimB: Claim): Promise<Judg
   return (await llamaJudge(claimA, claimB)) ?? buildHeuristicResult(claimA, claimB)
 }
 
-// Filter candidates before judging: only compare claims with topic overlap
-// Avoids O(n²) Llama calls
+// Filter candidates before judging: only compare claims with topic overlap.
+// Threshold 0.25 (era 0.4) — más permisivo, captura contradicciones donde el
+// extractor sacó predicates distintos para el mismo tema.
 export function filterCandidates(newClaim: Claim, existingClaims: Claim[]): Claim[] {
   const newKey = normalize(`${newClaim.subject} ${newClaim.predicate}`)
   return existingClaims.filter((c) => {
     if (c.id === newClaim.id) return false
     const key = normalize(`${c.subject} ${c.predicate}`)
-    return similarity(newKey, key) > 0.4
+    return similarity(newKey, key) > 0.25
   })
 }
 

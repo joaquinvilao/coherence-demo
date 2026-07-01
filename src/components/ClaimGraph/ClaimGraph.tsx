@@ -11,10 +11,13 @@ interface GraphNode {
   valid_at: string | null
   invalid_at: string | null
   doc_title: string
+  team?: string
   x?: number
   y?: number
+  z?: number
   vx?: number
   vy?: number
+  vz?: number
 }
 
 interface GraphLink {
@@ -145,12 +148,19 @@ const DEMO_LINKS: GraphLink[] = [
   },
 ]
 
-function nodeColor(node: GraphNode, timeTravelActive: boolean, date: string): string {
-  if (timeTravelActive) {
-    const active = !node.invalid_at || node.invalid_at > date
-    return active ? (DOC_COLORS[node.doc_title] ?? DEFAULT_COLOR) : '#374151'
-  }
-  return DOC_COLORS[node.doc_title] ?? DEFAULT_COLOR
+// Paleta monocromática profesional:
+//   - Default: gris azulado
+//   - Con contradicción: rojo
+//   - Seleccionado: azul
+//   - Fuera del time-travel activo: gris más oscuro
+const NODE_DEFAULT = '#94a3b8'
+const NODE_CONTRADICTION = '#ef4444'
+const NODE_SELECTED = '#3b82f6'
+
+function nodeColor(node: GraphNode, contradictedIds: Set<string>, selectedId: string | null): string {
+  if (selectedId === node.id) return NODE_SELECTED
+  if (contradictedIds.has(node.id)) return NODE_CONTRADICTION
+  return NODE_DEFAULT
 }
 
 const ClaimGraph: React.FC = () => {
@@ -158,8 +168,6 @@ const ClaimGraph: React.FC = () => {
   const [nodes, setNodes] = useState<GraphNode[]>(DEMO_NODES)
   const [links, setLinks] = useState<GraphLink[]>(DEMO_LINKS)
   const [selected, setSelected] = useState<SelectedItem | null>(null)
-  const [timelineDate, setTimelineDate] = useState<string>('2023-12-31')
-  const [timeTravelActive, setTimeTravelActive] = useState(false)
   const [filter, setFilter] = useState<'all' | 'contradiction' | 'entailment'>('all')
   const [view, setView] = useState<'graph' | 'list'>('graph')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -167,7 +175,7 @@ const ClaimGraph: React.FC = () => {
   const [dimensions, setDimensions] = useState({ w: 600, h: 400 })
 
   useEffect(() => {
-    import('react-force-graph-2d').then((mod) => setForceGraph(() => mod.default))
+    import('react-force-graph-3d').then((mod) => setForceGraph(() => mod.default))
   }, [])
 
   useEffect(() => {
@@ -184,37 +192,123 @@ const ClaimGraph: React.FC = () => {
     ;(window as any).__graphRef = graphRef
   }, [])
 
-  // Fuerzas D3 estilo Obsidian
+  // Config exacta de DeusData/codebase-memory-mcp GraphScene.tsx:
+  // camera={{ position: [0, 0, 800], fov: 50, near: 0.1, far: 100000 }}
+  // OrbitControls: damping 0.08, rotate 0.5, zoom 1.5, min/max 10/50000
   useEffect(() => {
-    if (!graphRef.current) return
-    const charge = graphRef.current.d3Force('charge')
-    const link = graphRef.current.d3Force('link')
-    // Repulsión muy suave para que el grafo quede compacto
-    if (charge) charge.strength(-15)
-    // Links cortos y fuertes — los nodos conectados se agrupan
-    if (link) link.distance(25).strength(0.8)
-    // Gravedad hacia el centro: evita que nodos se vayan al infinito
-    graphRef.current.d3Force('gravity', (alpha: number) => {
-      const g = graphRef.current
-      if (!g) return
-      // Acceder a los nodos del simulador vía el grafo
-      const graphNodes: any[] =
-        g
-          .d3Force('link')
-          ?.links?.()
-          ?.flatMap((l: any) => [l.source, l.target]) ?? []
-      const seen = new Set()
-      for (const n of graphNodes) {
-        if (!n || seen.has(n.id)) {
-          // eslint-disable-next-line no-continue
-          continue
-        }
-        seen.add(n.id)
-        n.vx = (n.vx ?? 0) - (n.x ?? 0) * alpha * 0.02
-        n.vy = (n.vy ?? 0) - (n.y ?? 0) * alpha * 0.02
+    if (!ForceGraph || !graphRef.current) return
+    const g = graphRef.current
+    const cam = g.camera?.()
+    if (cam) {
+      cam.fov = 50
+      cam.near = 0.1
+      cam.far = 100000
+      cam.updateProjectionMatrix?.()
+    }
+    g.cameraPosition?.({ x: 0, y: 0, z: 800 }, { x: 0, y: 0, z: 0 }, 0)
+    const ctrl = g.controls?.()
+    if (ctrl) {
+      ctrl.enableDamping = true
+      ctrl.dampingFactor = 0.08
+      ctrl.rotateSpeed = 0.5
+      ctrl.zoomSpeed = 1.5
+      ctrl.minDistance = 10
+      ctrl.maxDistance = 50000
+      ctrl.autoRotateSpeed = 0.4
+    }
+  }, [ForceGraph])
+
+  // Auto-rotación tras 15s sin interacción (estilo DeusData)
+  useEffect(() => {
+    if (!ForceGraph || !graphRef.current) return undefined
+    const controls = graphRef.current.controls?.()
+    if (!controls) return undefined
+
+    const IDLE_MS = 15_000
+    let lastInteraction = Date.now()
+    controls.autoRotateSpeed = 0.5
+
+    const reset = () => {
+      lastInteraction = Date.now()
+      controls.autoRotate = false
+    }
+
+    const canvas = containerRef.current?.querySelector('canvas')
+    canvas?.addEventListener('pointerdown', reset)
+    canvas?.addEventListener('wheel', reset, { passive: true })
+
+    const tick = setInterval(() => {
+      const idle = Date.now() - lastInteraction > IDLE_MS
+      if (idle && !controls.autoRotate) controls.autoRotate = true
+    }, 1000)
+
+    return () => {
+      clearInterval(tick)
+      canvas?.removeEventListener('pointerdown', reset)
+      canvas?.removeEventListener('wheel', reset)
+    }
+  }, [ForceGraph])
+
+  // Camera fly-to al hacer click en un nodo
+  const flyToNode = useCallback((node: GraphNode) => {
+    const g = graphRef.current
+    if (!g || node.x === undefined || node.y === undefined || node.z === undefined) return
+    const d = Math.hypot(node.x, node.y, node.z) || 1
+    const dist = 90
+    const ratio = (d + dist) / d
+    g.cameraPosition(
+      { x: node.x * ratio, y: node.y * ratio, z: node.z * ratio },
+      { x: node.x, y: node.y, z: node.z },
+      1200,
+    )
+  }, [])
+
+  // Escuchar evento del chat (BrainSidebar dispara coherence:focus-claim al clickear un chip)
+  useEffect(() => {
+    if (!ForceGraph) return undefined
+    const handler = (e: Event) => {
+      const claimId = (e as CustomEvent).detail?.claimId
+      if (!claimId) return
+      const node = nodes.find((n) => n.id === claimId)
+      if (node) {
+        setSelected({ type: 'node', data: node })
+        flyToNode(node)
       }
-    })
-    graphRef.current.d3ReheatSimulation?.()
+    }
+    window.addEventListener('coherence:focus-claim', handler)
+    return () => window.removeEventListener('coherence:focus-claim', handler)
+  }, [ForceGraph, nodes, flyToNode])
+
+  // Posicionamiento DETERMINISTA estilo DeusData:
+  // En vez de simulación física (que colapsa los nodos al origen con corpus chico),
+  // distribuimos los nodos en una esfera con golden spiral (Fibonacci sphere).
+  // DeusData hace algo parecido: recibe posiciones pre-calculadas del backend C++.
+  // Pausamos la simulación d3 para que no vuelva a moverlos.
+  useEffect(() => {
+    if (!ForceGraph || !graphRef.current) return undefined
+    const g = graphRef.current
+    const SPHERE_RADIUS = 200
+    const apply = () => {
+      const scene = g.scene?.()
+      const groups: any[] = []
+      scene?.traverse?.((o: any) => {
+        if (o.type === 'Group' && o.position) groups.push(o)
+      })
+      if (groups.length === 0) return
+      groups.forEach((o, i) => {
+        const phi = Math.acos(1 - (2 * (i + 0.5)) / groups.length)
+        const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
+        o.position.set(
+          SPHERE_RADIUS * Math.sin(phi) * Math.cos(theta),
+          SPHERE_RADIUS * Math.sin(phi) * Math.sin(theta),
+          SPHERE_RADIUS * Math.cos(phi),
+        )
+      })
+      g.pauseAnimation?.()
+    }
+    // Esperar a que el ForceGraph monte los grupos de nodos en el scene
+    const timer = setTimeout(apply, 1500)
+    return () => clearTimeout(timer)
   }, [ForceGraph, nodes.length])
 
   useEffect(() => {
@@ -236,31 +330,16 @@ const ClaimGraph: React.FC = () => {
     }
   }, [])
 
-  const timeFilteredNodes = nodes.filter((n) => {
-    if (!timeTravelActive) return true
-    return (!n.valid_at || n.valid_at <= timelineDate) && (!n.invalid_at || n.invalid_at > timelineDate)
-  })
-  const timeFilteredIds = new Set(timeFilteredNodes.map((n) => n.id))
-
   const visibleLinks = links.filter((l) => {
-    const sid = typeof l.source === 'string' ? l.source : (l.source as GraphNode).id
-    const tid = typeof l.target === 'string' ? l.target : (l.target as GraphNode).id
-    if (!timeFilteredIds.has(sid) || !timeFilteredIds.has(tid)) return false
     if (filter === 'all') return l.relation !== 'neutral'
     return l.relation === filter
   })
 
-  // Solo mostrar nodos que tienen al menos un link visible (los aislados no aportan)
-  const linkedIds = useMemo(
-    () =>
-      new Set([
-        ...visibleLinks.map((l) => (typeof l.source === 'string' ? l.source : (l.source as GraphNode).id)),
-        ...visibleLinks.map((l) => (typeof l.target === 'string' ? l.target : (l.target as GraphNode).id)),
-      ]),
-    [visibleLinks],
-  )
+  const visibleNodes = nodes
 
-  const visibleNodes = timeFilteredNodes.filter((n) => linkedIds.has(n.id))
+  // graphData memoizado — react-force-graph-3d compara por referencia y
+  // si pasamos un objeto nuevo en cada render, ignora el cambio.
+  const graphData = useMemo(() => ({ nodes: visibleNodes, links: visibleLinks }), [visibleNodes, visibleLinks])
 
   // Grado de cada nodo (para escalar el radio como Obsidian)
   const nodeDegrees = useMemo(() => {
@@ -276,50 +355,34 @@ const ClaimGraph: React.FC = () => {
 
   const contradictions = links.filter((l) => l.relation === 'contradiction')
 
-  // Estilo Obsidian: nodo pequeño + etiqueta debajo
-  const paintNode = useCallback(
-    (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      const color = nodeColor(node, timeTravelActive, timelineDate)
-      const isActive = !timeTravelActive || !node.invalid_at || node.invalid_at > timelineDate
-      const degree = nodeDegrees.get(node.id) ?? 0
-      const r = Math.max(3, Math.min(7, 3 + degree * 0.35))
-
-      // Círculo relleno
-      ctx.beginPath()
-      ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI)
-      ctx.fillStyle = isActive ? color : '#374151'
-      ctx.fill()
-
-      // Etiqueta — siempre visible como Obsidian, escala con zoom
-      if (isActive && globalScale > 0.5) {
-        const label = `${node.subject} ${node.object}`.slice(0, 28)
-        const fontSize = Math.max(3, Math.min(10, 5 / globalScale))
-        ctx.font = `${fontSize}px Inter, sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'top'
-        // Sombra de texto para legibilidad
-        ctx.fillStyle = 'rgba(0,0,0,0.6)'
-        ctx.fillText(label, node.x! + 0.5, node.y! + r + 2.5)
-        ctx.fillStyle = isActive ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.25)'
-        ctx.fillText(label, node.x!, node.y! + r + 2)
+  // IDs de nodos que participan en alguna contradicción (para colorearlos en rojo)
+  const contradictedIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const l of visibleLinks) {
+      if (l.relation !== 'contradiction') {
+        // eslint-disable-next-line no-continue
+        continue
       }
-    },
-    [timeTravelActive, timelineDate, nodeDegrees],
-  )
+      const s = typeof l.source === 'string' ? l.source : (l.source as GraphNode).id
+      const t = typeof l.target === 'string' ? l.target : (l.target as GraphNode).id
+      set.add(s)
+      set.add(t)
+    }
+    return set
+  }, [visibleLinks])
+
+  const selectedId = selected?.type === 'node' ? (selected.data as GraphNode).id : null
 
   const getLinkColor = useCallback((link: GraphLink) => {
-    if (link.relation === 'contradiction') return 'rgba(239,68,68,0.45)'
-    if (link.relation === 'entailment') return 'rgba(34,197,94,0.35)'
-    return 'rgba(107,114,128,0.15)'
+    if (link.relation === 'contradiction') return '#ef4444'
+    if (link.relation === 'entailment') return '#2c9f28'
+    return 'rgba(148,163,184,0.15)'
   }, [])
 
-  const dateMin = '2022-01-01'
-  const dateMax = '2024-12-31'
-
   return (
-    <div className="flex size-full select-none flex-col bg-[#0d1117] text-white">
+    <div className="flex size-full select-none flex-col bg-[#141414] text-white">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/5 bg-[#0d1117] px-4 py-2">
+      <div className="flex items-center justify-between border-b border-white/5 bg-[#1a1a1a] px-4 py-2">
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold tracking-tight text-white">Grafo de Claims</span>
           {contradictions.length > 0 && (
@@ -362,20 +425,26 @@ const ClaimGraph: React.FC = () => {
       </div>
 
       {/* Leyenda */}
-      <div className="flex items-center gap-4 border-b border-white/5 bg-[#0d1117]/80 px-4 py-1.5">
-        {Object.entries(DOC_COLORS).map(([doc, color]) => (
-          <span key={doc} className="flex items-center gap-1.5 text-[10px] text-neutral-500">
-            <span className="inline-block size-2 rounded-full" style={{ background: color }} />
-            {DOC_LABELS[doc] ?? doc}
-          </span>
-        ))}
+      <div className="flex items-center gap-4 border-b border-white/5 bg-[#141414]/80 px-4 py-1.5">
+        <span className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+          <span className="inline-block size-2 rounded-full" style={{ background: NODE_DEFAULT }} />
+          claim
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+          <span className="inline-block size-2 rounded-full" style={{ background: NODE_CONTRADICTION }} />
+          con contradicción
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+          <span className="inline-block size-2 rounded-full" style={{ background: NODE_SELECTED }} />
+          seleccionado
+        </span>
         <span className="ml-auto flex items-center gap-3 text-[10px] text-neutral-600">
           <span className="flex items-center gap-1">
             <span className="inline-block h-px w-4 bg-red-500/60" />
             contradicción
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-px w-4 bg-green-500/60" />
+            <span className="inline-block h-px w-4 bg-[#2c9f28]/70" />
             consistencia
           </span>
         </span>
@@ -388,61 +457,43 @@ const ClaimGraph: React.FC = () => {
             {ForceGraph && (
               <ForceGraph
                 ref={graphRef}
-                graphData={{ nodes: visibleNodes, links: visibleLinks }}
+                graphData={graphData}
                 width={dimensions.w}
                 height={dimensions.h}
-                backgroundColor="#0d1117"
-                nodeCanvasObject={paintNode}
-                nodeCanvasObjectMode={() => 'replace'}
-                nodePointerAreaPaint={(node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => {
-                  ctx.beginPath()
-                  ctx.arc(node.x!, node.y!, 12, 0, 2 * Math.PI)
-                  ctx.fillStyle = color
-                  ctx.fill()
-                }}
+                backgroundColor="#141414"
+                showNavInfo={false}
+                nodeColor={(node: GraphNode) => nodeColor(node, contradictedIds, selectedId)}
+                nodeVal={(node: GraphNode) => Math.max(8, Math.min(20, 8 + (nodeDegrees.get(node.id) ?? 0) * 0.8))}
+                nodeOpacity={1}
+                nodeResolution={12}
+                nodeLabel={(node: GraphNode) =>
+                  `<div style="background:#0d1117;color:#fff;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-size:11px;font-family:Inter,sans-serif;max-width:240px">
+                    <div style="opacity:0.5;font-size:9px;margin-bottom:2px">${DOC_LABELS[node.doc_title] ?? node.doc_title} · ${node.valid_at?.slice(0, 4) ?? ''}</div>
+                    <div><span style="opacity:0.6">${node.subject}</span> <span style="opacity:0.4">${node.predicate}</span> <span style="font-weight:600">${node.object}</span></div>
+                  </div>`
+                }
                 linkColor={getLinkColor}
-                linkWidth={(l: GraphLink) => (l.relation === 'contradiction' ? 1 : 0.6)}
-                linkDirectionalParticles={(l: GraphLink) => (l.relation === 'contradiction' ? 2 : 0)}
-                linkDirectionalParticleColor={() => 'rgba(239,68,68,0.8)'}
-                linkDirectionalParticleWidth={1.5}
-                linkDirectionalParticleSpeed={0.005}
-                linkCurvature={0.1}
-                onNodeClick={(node: GraphNode) => setSelected({ type: 'node', data: node })}
+                linkWidth={(l: GraphLink) => (l.relation === 'contradiction' ? 0.8 : 0.4)}
+                linkOpacity={0.6}
+                linkDirectionalParticles={(l: GraphLink) => (l.relation === 'contradiction' ? 3 : 0)}
+                linkDirectionalParticleColor={() => '#ef4444'}
+                linkDirectionalParticleWidth={2}
+                linkDirectionalParticleSpeed={0.006}
+                linkResolution={6}
+                onNodeClick={(node: GraphNode) => {
+                  setSelected({ type: 'node', data: node })
+                  flyToNode(node)
+                }}
                 onLinkClick={(link: GraphLink) => setSelected({ type: 'link', data: link })}
                 onBackgroundClick={() => setSelected(null)}
-                onEngineStop={() => graphRef.current?.zoomToFit?.(400, 60)}
-                cooldownTicks={200}
-                warmupTicks={50}
+                cooldownTicks={0}
+                warmupTicks={0}
                 d3AlphaDecay={0.02}
                 d3VelocityDecay={0.3}
+                controlType="orbit"
+                enableNavigationControls
               />
             )}
-
-            {/* Banner time-travel */}
-            <AnimatePresence>
-              {timeTravelActive && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="pointer-events-none absolute inset-x-0 top-3 flex justify-center"
-                >
-                  <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-blue-500/30 bg-blue-950/80 px-4 py-1.5 text-sm backdrop-blur">
-                    <span className="text-blue-400">🕐</span>
-                    <span className="font-medium text-blue-200">
-                      {new Date(timelineDate).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-xs text-blue-400 underline underline-offset-2 hover:text-blue-200"
-                      onClick={() => setTimeTravelActive(false)}
-                    >
-                      Volver al presente
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Panel de detalle */}
             <AnimatePresence>
@@ -451,7 +502,7 @@ const ClaimGraph: React.FC = () => {
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 16 }}
-                  className="bg-[#0d1117]/98 absolute right-0 top-0 h-full w-72 overflow-y-auto border-l border-white/5 p-4 backdrop-blur-sm"
+                  className="bg-[#1a1a1a]/98 absolute right-0 top-0 h-full w-72 overflow-y-auto border-l border-white/5 p-4 backdrop-blur-sm"
                 >
                   <div className="mb-4 flex items-center justify-between">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
@@ -595,52 +646,6 @@ const ClaimGraph: React.FC = () => {
             })}
           </div>
         )}
-      </div>
-
-      {/* Timeline scrubber */}
-      <div className="border-t border-white/5 bg-[#0d1117] px-4 py-3">
-        <div className="mb-1 flex items-center justify-between">
-          <span className="text-[10px] text-neutral-600">Timeline bi-temporal</span>
-          {timeTravelActive && (
-            <span className="text-[10px] font-medium text-blue-400">
-              {new Date(timelineDate).toLocaleDateString('es-CL', { month: 'short', year: 'numeric' })}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="w-8 text-right text-[10px] text-neutral-600">2022</span>
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 flex w-full items-center">
-              {['2022', '2023', '2024'].map((y, i) => (
-                <div key={y} className="absolute h-2 w-px bg-white/10" style={{ left: `${(i / 2) * 100}%` }} />
-              ))}
-            </div>
-            <input
-              type="range"
-              min={new Date(dateMin).getTime()}
-              max={new Date(dateMax).getTime()}
-              value={new Date(timelineDate).getTime()}
-              onChange={(e) => {
-                setTimelineDate(new Date(Number(e.target.value)).toISOString().slice(0, 10))
-                setTimeTravelActive(true)
-              }}
-              className="relative w-full cursor-pointer accent-blue-500"
-              style={{ background: 'transparent' }}
-            />
-          </div>
-          <span className="w-8 text-[10px] text-neutral-600">2024</span>
-          <button
-            type="button"
-            onClick={() => setTimeTravelActive(!timeTravelActive)}
-            className={`ml-1 rounded-md px-3 py-1 text-xs font-medium transition-all ${
-              timeTravelActive
-                ? 'bg-blue-600/30 text-blue-300 ring-1 ring-blue-500/30'
-                : 'bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-neutral-300'
-            }`}
-          >
-            {timeTravelActive ? '🕐 Activo' : 'Time-travel'}
-          </button>
-        </div>
       </div>
     </div>
   )

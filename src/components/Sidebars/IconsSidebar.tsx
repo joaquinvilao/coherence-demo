@@ -5,7 +5,7 @@ import { MdSettings } from 'react-icons/md'
 import { VscNewFolder } from 'react-icons/vsc'
 import { HiOutlinePencilAlt } from 'react-icons/hi'
 
-import { Files, Upload, Search, Moon, SunMoon } from '@tamagui/lucide-icons'
+import { Files, Upload, Search, Moon, SunMoon, MessageCircle } from '@tamagui/lucide-icons'
 import { YStack } from 'tamagui'
 import { useModalOpeners } from '../../contexts/ModalContext'
 import { useChatContext } from '@/contexts/ChatContext'
@@ -65,6 +65,19 @@ const IconsSidebar: React.FC<IconsSidebarProps> = ({ getShortcutDescription }) =
           className="flex size-4/5 items-center justify-center rounded"
         >
           <Upload size={20} color={determineColor('ingest')} title="Ingerir documentos" />
+        </YStack>
+      </div>
+      <div
+        className="flex h-8 w-full cursor-pointer items-center justify-center"
+        onClick={() => setSidebarShowing('brain')}
+      >
+        <YStack
+          alignItems="center"
+          hoverStyle={{ backgroundColor: '$gray7' }}
+          backgroundColor={sidebarShowing === 'brain' ? '$gray6' : ''}
+          className="flex size-4/5 items-center justify-center rounded"
+        >
+          <MessageCircle size={20} color={determineColor('brain')} title="Preguntale al Brain" />
         </YStack>
       </div>
       <div

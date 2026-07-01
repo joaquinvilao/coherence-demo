@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { ingestDocument } from './pipeline'
 import { getGraphData, getContradictions, getDateRange, clearDb } from './db'
+import { askBrain } from './brain'
 
 function registerCoherenceHandlers() {
   // Ingerir un documento y emitir progreso
@@ -32,6 +33,16 @@ function registerCoherenceHandlers() {
   ipcMain.handle('coherence:clear', () => {
     clearDb()
     return { success: true }
+  })
+
+  // Brain Q&A: pregunta en lenguaje natural → respuesta + claims citados + contradicciones reveladas
+  ipcMain.handle('coherence:ask-brain', async (_event, question: string) => {
+    try {
+      const result = await askBrain(question)
+      return { success: true, ...result }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
   })
 
   // Abrir file picker nativo

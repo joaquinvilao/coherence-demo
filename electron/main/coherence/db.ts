@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
+import { getTeamForDoc } from './teams'
 
 // Tipos
 export interface Document {
@@ -102,6 +103,26 @@ export function getClaims(): Claim[] {
   return loadDb().claims
 }
 
+// Brain retrieval: filtrar claims que contengan alguna keyword en el campo indicado.
+// Devuelve ordenados por # de matches descendente (lista pre-ranqueada para RRF).
+export function getClaimsByKeywords(
+  keywords: string[],
+  field: 'subject' | 'predicate' | 'object',
+): Claim[] {
+  if (keywords.length === 0) return []
+  const lowered = keywords.map((k) => k.toLowerCase())
+  return loadDb()
+    .claims
+    .map((c) => {
+      const haystack = (c[field] ?? '').toLowerCase()
+      const matches = lowered.filter((k) => haystack.includes(k)).length
+      return { claim: c, matches }
+    })
+    .filter((x) => x.matches > 0)
+    .sort((a, b) => b.matches - a.matches)
+    .map((x) => x.claim)
+}
+
 // Claims vigentes en una fecha (para el timeline scrubber)
 export function getClaimsAtDate(isoDate: string): Claim[] {
   const db = loadDb()
@@ -122,6 +143,14 @@ export function insertRelation(rel: Omit<Relation, 'id' | 'created_at'>): Relati
   return relation
 }
 
+// Brain retrieval: devolver todas las relaciones que involucren al menos uno de los claimIds dados.
+// Útil para mostrar contradicciones al usuario incluso si solo uno de los dos claims está en el top-K.
+export function getRelationsForClaims(claimIds: string[]): Relation[] {
+  if (claimIds.length === 0) return []
+  const set = new Set(claimIds)
+  return loadDb().relations.filter((r) => set.has(r.claim_a_id) || set.has(r.claim_b_id))
+}
+
 export function getContradictions(): Array<Relation & { claimA: Claim; claimB: Claim }> {
   const db = loadDb()
   return db.relations
@@ -133,19 +162,23 @@ export function getContradictions(): Array<Relation & { claimA: Claim; claimB: C
     })
 }
 
-// Grafo completo para react-force-graph-2d
+// Grafo completo para react-force-graph-3d
 export function getGraphData() {
   const db = loadDb()
-  const nodes = db.claims.map((c) => ({
-    id: c.id,
-    label: `${c.subject} ${c.predicate} ${c.object}`,
-    subject: c.subject,
-    predicate: c.predicate,
-    object: c.object,
-    valid_at: c.valid_at,
-    invalid_at: c.invalid_at,
-    doc_title: db.documents.find((d) => d.id === c.document_id)?.title ?? '',
-  }))
+  const nodes = db.claims.map((c) => {
+    const docTitle = db.documents.find((d) => d.id === c.document_id)?.title ?? ''
+    return {
+      id: c.id,
+      label: `${c.subject} ${c.predicate} ${c.object}`,
+      subject: c.subject,
+      predicate: c.predicate,
+      object: c.object,
+      valid_at: c.valid_at,
+      invalid_at: c.invalid_at,
+      doc_title: docTitle,
+      team: getTeamForDoc(docTitle),
+    }
+  })
   const links = db.relations
     .filter((r) => r.relation !== 'neutral')
     .map((r) => ({

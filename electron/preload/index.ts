@@ -155,6 +155,17 @@ const coherence = {
   getDateRange: createIPCHandler<() => Promise<{ min: string | null; max: string | null }>>('coherence:date-range'),
   clear: createIPCHandler<() => Promise<{ success: boolean }>>('coherence:clear'),
   openFileDialog: createIPCHandler<() => Promise<string | null>>('coherence:open-file-dialog'),
+  askBrain:
+    createIPCHandler<
+      (question: string) => Promise<{
+        success: boolean
+        answer?: string
+        citedClaims?: unknown[]
+        contradictionsRevealed?: unknown[]
+        retrievedClaimIds?: string[]
+        error?: string
+      }>
+    >('coherence:ask-brain'),
 }
 
 // Expose to renderer process
